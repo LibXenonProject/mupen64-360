@@ -35,7 +35,7 @@
 // main.c
 #define VERSION "0.96 Beta"
 
-#define MUPEN_DIR "uda:/mupen64-360/"
+#define STATIC_MUPEN_DIR "uda0:/mupen64-360"
 
 #include <stdlib.h>
 #include <unistd.h>
@@ -55,6 +55,7 @@ extern "C" {
 
 #include <malloc.h>
 #include <debug.h>
+#include <elf/elf.h>
 #include <diskio/ata.h>
 #include <ppc/cache.h>
 #include <ppc/timebase.h>
@@ -105,6 +106,8 @@ int p_noask=TRUE;
 char g_WorkingDir[PATH_MAX];
 
 char txtbuffer[1024];
+
+static char rootpath[256] = {0};
 
 int run_rom(char * romfile);
 
@@ -288,7 +291,7 @@ void do_GUI() {
     }
 
     Browser.SetLaunchAction(ActionLaunchFile);
-    Browser.Run(MUPEN_DIR);
+    Browser.Run(rootpath);
 }
 
 
@@ -388,7 +391,7 @@ int run_rom(char * romfile)
 	
 	fileBrowser_file saveFile_dir;
 	memset(&saveFile_dir,0,sizeof(fileBrowser_file));
-	strcpy(saveFile_dir.name,MUPEN_DIR"saves/");
+	sprintf(saveFile_dir.name,"%s/saves/",rootpath);
 	
 	cls_GUI();
 	
@@ -441,23 +444,27 @@ int run_rom(char * romfile)
 	return 0;
 }
 
-int main ()
+int main (int argc, char **argv)
 {
 	ZLX::InitialiseVideo();
 	console_set_colors(0xD8444E00,0x00ffff00); // yellow on blue
 	console_init();
+	
+	if(argc != 0 && argv[0]) {
+		char *tmp = argv_GetFilepath(argv[0]);
+		strcpy(rootpath,tmp);
+	} else {
+		strcpy(rootpath,STATIC_MUPEN_DIR);
+	}
 
 	printf("\nMupen64-360 version : %s\n\n", VERSION);
 
 	xenon_sound_init();
 
-	ZLX::Hw::SystemInit(ZLX::INIT_USB);
+	ZLX::Hw::SystemInit(ZLX::INIT_USB|ZLX::INIT_ATA|ZLX::INIT_ATAPI|ZLX::INIT_FILESYSTEM);
 	ZLX::Hw::SystemPoll();
-
-	xenon_ata_init();
-	xenon_atapi_init();
-
-	strcpy(cwd, MUPEN_DIR);
+	
+	strcpy(cwd, rootpath);
 	while(cwd[strlen(cwd)-1] != '/') cwd[strlen(cwd)-1] = '\0';
 	strcpy(g_WorkingDir, cwd);
 
